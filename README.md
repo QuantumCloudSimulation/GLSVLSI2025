@@ -22,7 +22,7 @@ Install the required libraries manually using `pip`:
 
 ```bash
 pip install numpy matplotlib
-
+```
 
 
 ⸻
@@ -30,10 +30,10 @@ pip install numpy matplotlib
 2. Run the Jupyter Notebook
 
 Start Jupyter and open the provided notebook:
-
+```
 jupyter notebook GLSVLSI_2025.ipynb
 
-
+```
 
 ⸻
 
@@ -48,7 +48,7 @@ In the notebook:
   • ibm_quebec
   • ibm_kawasaki
   • Example of running a simulation:
-
+```
 qcloudsimenv = QCloudSimEnv(
     devices=devices,
     broker_class=ParallelBroker,
@@ -58,7 +58,7 @@ qcloudsimenv = QCloudSimEnv(
     printlog=True
 )
 qcloudsimenv.run()
-
+```
 
 
 ⸻
@@ -66,13 +66,13 @@ qcloudsimenv.run()
 4. Plotting Results
 
 You can visualize the fidelity distribution for different allocation modes using matplotlib:
-
+```
 plt.hist(fidelity_list['smart'], bins=10, color='pink', edgecolor='black', alpha=0.7, label='EASM')
 plt.xlabel("Fidelity")
 plt.ylabel("Frequency")
 plt.legend(loc='upper left')
 plt.show()
-
+```
 
 
 ⸻
@@ -81,12 +81,12 @@ plt.show()
   • The simulation logs fidelity and communication time.
   • Fidelity results are plotted and compared under simple and smart allocation modes.
   • Sample output:
-
+```
 Allocation mode: smart
 Total Sim-time: 1203.45
 Fidelity: 0.9123 ± 0.0132
 Comm time: 45.32
-
+```
 
 
 📄 License
