@@ -66,7 +66,7 @@ qcloudsimenv.run()
 4. Plotting Results
 
 You can visualize the fidelity distribution for different allocation modes using matplotlib:
-```
+```python
 plt.hist(fidelity_list['smart'], bins=10, color='pink', edgecolor='black', alpha=0.7, label='EASM')
 plt.xlabel("Fidelity")
 plt.ylabel("Frequency")
@@ -81,7 +81,7 @@ plt.show()
   • The simulation logs fidelity and communication time.
   • Fidelity results are plotted and compared under simple and smart allocation modes.
   • Sample output:
-```
+```bash
 Allocation mode: smart
 Total Sim-time: 1203.45
 Fidelity: 0.9123 ± 0.0132
