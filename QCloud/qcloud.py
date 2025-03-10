@@ -23,9 +23,8 @@ class QCloud:
 
         # Mapping strategies to functions
         self.allocation_strategies = {
-            "simple": self.simple_allocate_large_job,
-            "smart": self.smart_allocate_large_job,
-            "delete": self.delete_allocate_large_job
+            "fast": self.simple_allocate_large_job,
+            "smart": self.smart_allocate_large_job
         }
 
         # Set the allocation mode
@@ -276,113 +275,3 @@ class QCloud:
 
         self.job_records_manager.log_job_event(job.job_id, 'fidelity', round(final_fidelity,4))
 
-        
-        
-    def delete_allocate_large_job(self, job, devices):
-        """
-        Allocate a large job across multiple devices, optimizing execution time by prioritizing high-CLOPS devices.
-
-        Parameters:
-        - job: The QJob object representing the job.
-        - devices: List of quantum devices.
-        """
-        if self.printlog:
-            for d in devices: 
-                print(f"Available qubits for {d.name}: {d.container.level}, CLOPS: {d.clops}")
-
-        # Step 1: Identify eligible devices
-        eligible_devices = []
-        for device in devices:
-            if device.container.level >= job.num_qubits / len(devices):
-                selected_subgraph = select_vertices_fast(device, job.num_qubits // len(devices), job.job_id)
-                if selected_subgraph:
-                    error_score = (
-                        (0.4 * sum(device.readout_errors) / len(device.readout_errors)) + 
-                        (0.3 * device.single_qubit_gate_errors["sx"]) + 
-                        (0.3 * sum(device.two_qubit_gate_errors.values()) / len(device.two_qubit_gate_errors))
-                    ) 
-
-                    eligible_devices.append((device, selected_subgraph, error_score, device.clops))
-
-        # Step 2: Ensure sufficient devices are available
-        while len(eligible_devices) < 2:
-            if self.printlog:
-                print(f"{self.env.now:.2f}: Insufficient connected devices to allocate job #{job.job_id}. Retrying...")
-            yield self.env.timeout(1)
-            eligible_devices = []
-            for device in devices:
-                if device.container.level >= job.num_qubits / len(devices):
-                    selected_subgraph = select_vertices_fast(device, job.num_qubits // len(devices), job.job_id)
-                    if selected_subgraph:
-                        error_score = (
-                            (0.4 * sum(device.readout_errors) / len(device.readout_errors)) + 
-                            (0.3 * device.single_qubit_gate_errors["sx"]) + 
-                            (0.3 * sum(device.two_qubit_gate_errors.values()) / len(device.two_qubit_gate_errors))
-                        ) 
-
-                        eligible_devices.append((device, selected_subgraph, error_score, device.clops))
-
-
-        # Step 3: Prioritize High CLOPS and Low Error Score Devices
-
-        eligible_devices.sort(key=lambda x: (x[2], -x[3]))  # Sort by lowest error score, then highest CLOPS
-
-        num_devices_to_use = min(len(eligible_devices), math.ceil(job.num_qubits / max(d.container.level for d, _, _, _ in eligible_devices)))
-        selected_devices = eligible_devices[:num_devices_to_use]  # Pick best devices
-
-        # Step 4: Ensure devices with highest CLOPS are allocated first
-        selected_devices.sort(key=lambda x: -x[3])  # Sort devices by highest CLOPS first
-
-        # Step 5: Split job across selected devices optimally
-        split_qubits = job.num_qubits // num_devices_to_use
-        remainder_qubits = job.num_qubits % num_devices_to_use
-        allocated_devices = []
-
-        for idx, (device, subgraph, error_score, clops) in enumerate(selected_devices):
-            allocated_qubits = split_qubits + (1 if idx < remainder_qubits else 0)
-            with device.resource.request(priority=2) as req:
-                yield device.container.get(allocated_qubits)
-                allocated_devices.append((device, allocated_qubits, subgraph, clops))
-                if self.printlog:
-                    print(f"{self.env.now:.2f}: Job #{job.job_id} allocated {allocated_qubits} qubits on {device.name} "
-                          f"(error score: {error_score:.4f}, CLOPS: {clops}).")
-
-                # Log per-device allocation start
-                self.job_records_manager.log_job_event(job.job_id, 'devc_proc', round(self.env.now, 4))
-
-        # Step 6: process inter-device communication by pairing devices 
-        for i in range(len(allocated_devices) - 1):
-            device1, qubits1, _, _ = allocated_devices[i]
-            device2, qubits2, _, _ = allocated_devices[i + 1]
-            yield self.env.process(self.device_comm(job, device1, device2, qubits1 + qubits2))
-
-        # Step 7: Process the job
-        process_times = [self.calculate_process_time(device, job) for device, _, _, _ in allocated_devices]
-        yield self.env.timeout(max(process_times))  # Max execution time across devices
-
-        # Step 8: Release resources after completion
-        for device, allocated_qubits, _, _ in allocated_devices:
-            yield device.container.put(allocated_qubits)
-            self.job_records_manager.log_job_event(job.job_id, 'devc_finish', round(self.env.now, 4))
-            if self.printlog:
-                print(f"{self.env.now:.2f}: Job #{job.job_id} completed on {device.name}.")
-
-        # Step 9: Compute Fidelity
-        fidelities = []
-        for device, _, _, _ in allocated_devices:
-            avg_single_qubit_error = device.single_qubit_gate_errors["sx"]  
-            single_qubit_fidelity = (1 - avg_single_qubit_error) ** job.depth
-
-            avg_readout_error = sum(device.readout_errors) / len(device.readout_errors)  
-            readout_fidelity = (1 - avg_readout_error) ** ((job.num_qubits // len(allocated_devices)) ** 0.5)
-
-            device_fidelity = single_qubit_fidelity * readout_fidelity
-            fidelities.append(device_fidelity)
-
-        # Step 10: Compute final fidelity with communication penalty
-        avg_fidelity = sum(fidelities) / len(fidelities) if fidelities else -1.0
-        num_connections = len(allocated_devices) - 1  
-        communication_penalty = 0.94 ** num_connections  
-        final_fidelity = avg_fidelity * communication_penalty  
-
-        self.job_records_manager.log_job_event(job.job_id, 'fidelity', round(final_fidelity, 4))
