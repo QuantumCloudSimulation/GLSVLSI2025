@@ -48,8 +48,7 @@ In the notebook:
   • ibm_quebec
   • ibm_kawasaki
   • Example of running a simulation:
-```
-python
+```python
 qcloudsimenv = QCloudSimEnv(
     devices=devices,
     broker_class=ParallelBroker,
