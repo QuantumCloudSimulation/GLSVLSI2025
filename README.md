@@ -30,7 +30,7 @@ pip install numpy matplotlib
 2. Run the Jupyter Notebook
 
 Start Jupyter and open the provided notebook:
-```
+```bash
 jupyter notebook GLSVLSI_2025.ipynb
 
 ```
@@ -49,6 +49,7 @@ In the notebook:
   • ibm_kawasaki
   • Example of running a simulation:
 ```
+python
 qcloudsimenv = QCloudSimEnv(
     devices=devices,
     broker_class=ParallelBroker,
