@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14997933.svg)](https://doi.org/10.5281/zenodo.14997933)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15002682.svg)](https://doi.org/10.5281/zenodo.15002682)
 
 # Quantum Cloud Simulation Environment
 
